@@ -1,28 +1,32 @@
 import logging
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 from datetime import datetime
 
 # --- CONFIGURATION ---
-TOKEN = '8341745520:AAEPcNTWEIASN_y5lOwhdeQfbYSUKNsFR7s' # Revoke this after testing!
-SHEET_NAME = "Dinglong Part Timer Bot" # Updated to match your screenshot
+# IMPORTANT: Replace this with your NEW token from @BotFather
+TOKEN = 'YOUR_NEW_TELEGRAM_BOT_TOKEN' 
+SHEET_NAME = "Dinglong Part Timer Bot"
 JSON_KEYFILE = "credentials.json"
 
 # --- GOOGLE SHEETS CONNECTION ---
 def get_sheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(JSON_KEYFILE, scope)
-    client = gspread.authorize(creds)
-    return client.open(Dinglong Part Timer Bot).sheet1
+    try:
+        # Modern way to connect using gspread
+        client = gspread.service_account(filename=JSON_KEYFILE)
+        return client.open(SHEET_NAME).sheet1
+    except Exception as e:
+        print(f"Failed to connect to Google Sheets: {e}")
+        raise
 
 # --- FORMAT VALIDATION ---
 def parse_format(text):
     required_keys = ["客户姓名", "客户地区", "平台", "客户WS", "P1 编号", "P2 编号", "部门名字"]
     extracted_data = {}
-    lines = text.strip().split('\n')
     
+    # Handling both "Key-Value" and "Key - Value" formats
+    lines = text.strip().split('\n')
     for line in lines:
         if '-' in line:
             parts = line.split('-', 1)
@@ -58,7 +62,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data.get("P1 编号"),
             data.get("P2 编号"),
             data.get("部门名字"),
-            str(msg_id)
+            str(msg_id) # Stored in Column J (10) for deletion lookup
         ]
         sheet.append_row(row)
 
@@ -69,6 +73,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def delete_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    # Extract original user and message ID from callback data
     _, original_user_id, msg_id = query.data.split('_')
 
     if str(query.from_user.id) != original_user_id:
@@ -77,19 +82,25 @@ async def delete_button_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
     try:
         sheet = get_sheet()
+        # Look for the message ID in column 10 (J)
         cell = sheet.find(str(msg_id), in_column=10)
         if cell:
             sheet.delete_rows(cell.row)
-            await query.edit_message_text("🗑️ Deleted from sheet.")
+            await query.edit_message_text("🗑️ Record deleted from sheet.")
         else:
-            await query.answer("Record not found.", show_alert=True)
+            await query.answer("Record not found in sheet.", show_alert=True)
     except Exception as e:
         await query.edit_message_text(f"❌ Delete failed: {e}")
 
 def main():
+    # Initialize the Application
     application = Application.builder().token(TOKEN).build()
+    
+    # Add Handlers
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(delete_button_handler))
+    
+    print("Bot is running...")
     application.run_polling()
 
 if __name__ == '__main__':
