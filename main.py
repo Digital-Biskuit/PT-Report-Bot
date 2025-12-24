@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from datetime import datetime
 
 # --- CONFIGURATION ---
-TOKEN = '8287697686:AAGrq9d1R3YPW7Sag48jFA4T2iD7NZTzyJA' # Revoke this after testing!
+TOKEN = '8341745520:AAEPcNTWEIASN_y5lOwhdeQfbYSUKNsFR7s' # Revoke this after testing!
 SHEET_NAME = "Dinglong Part Timer Bot" # Updated to match your screenshot
 JSON_KEYFILE = "credentials.json"
 
