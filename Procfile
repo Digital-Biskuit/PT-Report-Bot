@@ -1,1 +1,1 @@
-worker: python ptcollectorbot.py
+worker: python main.py
