@@ -15,7 +15,7 @@ def get_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_name(JSON_KEYFILE, scope)
     client = gspread.authorize(creds)
-    return client.open(SHEET_NAME).sheet1
+    return client.open(Dinglong Part Timer Bot).sheet1
 
 # --- FORMAT VALIDATION ---
 def parse_format(text):
