@@ -6,8 +6,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from datetime import datetime
 
 # --- CONFIGURATION ---
-TOKEN = '8341745520:AAEOUih-Ro1GHEMmRvqgmlZT6y4Z_9m1YrA'
-SHEET_NAME = "Dinglong Part Timer Bot"
+TOKEN = '8287697686:AAGrq9d1R3YPW7Sag48jFA4T2iD7NZTzyJA' # Revoke this after testing!
+SHEET_NAME = "Dinglong Part Timer Bot" # Updated to match your screenshot
 JSON_KEYFILE = "credentials.json"
 
 # --- GOOGLE SHEETS CONNECTION ---
@@ -17,12 +17,9 @@ def get_sheet():
     client = gspread.authorize(creds)
     return client.open(SHEET_NAME).sheet1
 
-# --- VALIDATION LOGIC ---
+# --- FORMAT VALIDATION ---
 def parse_format(text):
-    """Checks if the message matches the required Chinese format."""
-    required_keys = [
-        "客户姓名", "客户地区", "平台", "客户WS", "P1 编号", "P2 编号", "部门名字"
-    ]
+    required_keys = ["客户姓名", "客户地区", "平台", "客户WS", "P1 编号", "P2 编号", "部门名字"]
     extracted_data = {}
     lines = text.strip().split('\n')
     
@@ -33,14 +30,10 @@ def parse_format(text):
             val = parts[1].strip()
             extracted_data[key] = val
 
-    # Verify all keys exist and are not empty
     errors = [key for key in required_keys if not extracted_data.get(key)]
     return extracted_data, errors
 
 # --- HANDLERS ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Victory Group Bot is online. Please send information in the correct format.")
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     user = update.message.from_user
@@ -48,15 +41,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     data, missing_fields = parse_format(user_text)
 
-    # Trigger if staff puts wrong information
     if missing_fields:
-        error_msg = "❌ **Invalid Information!**\n\nThe following fields are missing or empty:\n"
-        error_msg += "\n".join([f"- {field}" for field in missing_fields])
-        error_msg += "\n\nPlease resend with the correct format."
+        error_msg = "❌ **Invalid Information!**\nMissing fields:\n" + "\n".join([f"- {f}" for f in missing_fields])
         await update.message.reply_text(error_msg, parse_mode='Markdown')
         return
 
-    # If valid, save to Google Sheet
     try:
         sheet = get_sheet()
         row = [
@@ -69,55 +58,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data.get("P1 编号"),
             data.get("P2 编号"),
             data.get("部门名字"),
-            str(msg_id) # Store message ID to find it later for deletion
+            str(msg_id)
         ]
         sheet.append_row(row)
 
-        # Create Delete Button (Only for the user who sent it)
         keyboard = [[InlineKeyboardButton("🗑️ Delete This Record", callback_data=f"del_{user.id}_{msg_id}")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text("✅ Data saved to Google Sheets successfully!", reply_markup=reply_markup)
-
+        await update.message.reply_text("✅ Saved to Dinglong Sheet!", reply_markup=InlineKeyboardMarkup(keyboard))
     except Exception as e:
-        logging.error(f"Sheet Error: {e}")
-        await update.message.reply_text(f"⚠️ Google Sheets Error: {e}")
+        await update.message.reply_text(f"⚠️ Sheet Error: {e}")
 
 async def delete_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
-
-    # Data format: del_UserID_MsgID
     _, original_user_id, msg_id = query.data.split('_')
 
-    # Security check: Only the person who posted can delete
     if str(query.from_user.id) != original_user_id:
-        await context.bot.send_message(
-            chat_id=query.message.chat_id, 
-            text=f"🚫 @{query.from_user.username}, you cannot delete someone else's record!"
-        )
+        await query.answer("🚫 You cannot delete this!", show_alert=True)
         return
 
-    # Delete from Sheet
     try:
         sheet = get_sheet()
-        cell = sheet.find(str(msg_id), in_column=10) # Search in the MsgID column
+        cell = sheet.find(str(msg_id), in_column=10)
         if cell:
             sheet.delete_rows(cell.row)
-            await query.edit_message_text("🗑️ Record has been deleted from the database.")
+            await query.edit_message_text("🗑️ Deleted from sheet.")
         else:
-            await query.edit_message_text("⚠️ Record not found (it might have been deleted already).")
+            await query.answer("Record not found.", show_alert=True)
     except Exception as e:
         await query.edit_message_text(f"❌ Delete failed: {e}")
 
 def main():
     application = Application.builder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(delete_button_handler))
-
-    print("Bot is running...")
     application.run_polling()
 
 if __name__ == '__main__':
