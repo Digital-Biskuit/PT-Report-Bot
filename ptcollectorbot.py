@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- CONFIGURATION ---
 TOKEN = '8341745520:AAEOUih-Ro1GHEMmRvqgmlZT6y4Z_9m1YrA'
-SHEET_NAME = "VictoryGroup_Records"
+SHEET_NAME = "Dinglong Part Timer Bot"
 JSON_KEYFILE = "credentials.json"
 
 # --- GOOGLE SHEETS CONNECTION ---
